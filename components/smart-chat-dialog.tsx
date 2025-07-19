@@ -5,8 +5,27 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Mic, Send, Upload, MicOff, Loader2, Lightbulb, Search } from "lucide-react"
+import {
+  Mic,
+  Send,
+  Upload,
+  MicOff,
+  Loader2,
+  Lightbulb,
+  Search,
+  X,
+  Volume2,
+  AlertCircle,
+  Settings,
+  Play,
+  RotateCcw,
+} from "lucide-react"
 import { LogoIcon } from "@/components/ui/logo"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import type { SpeechRecognition, SpeechSynthesis, SpeechSynthesisVoice } from "web-speech-api"
 
 interface SmartChatDialogProps {
   open: boolean
@@ -21,19 +40,70 @@ interface Message {
   isTyping?: boolean
 }
 
+interface VoiceSettings {
+  rate: number
+  pitch: number
+  volume: number
+  voice: string
+}
+
+interface CustomVoice {
+  id: string
+  name: string
+  audioBlob: Blob
+  duration: number
+}
+
 export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState("")
   const [searchValue, setSearchValue] = useState("")
+  // 添加语音相关状态
   const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null)
+  const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null)
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null)
+  const [speechSupported, setSpeechSupported] = useState(false)
+  const [speechError, setSpeechError] = useState<string>("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [typingText, setTypingText] = useState("")
   const [filteredMessages, setFilteredMessages] = useState<Message[]>([])
   const [isFocused, setIsFocused] = useState(false)
   const [aiStatus, setAiStatus] = useState<"idle" | "thinking" | "responding">("idle")
   const [sendingAnimation, setSendingAnimation] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+
+  // 语音设置相关状态
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
+    rate: 1.0, // 常规语速
+    pitch: 1.0,
+    volume: 0.8,
+    voice: "default",
+  })
+
+  // 自定义语音录制状态
+  const [isRecordingCustomVoice, setIsRecordingCustomVoice] = useState(false)
+  const [customVoices, setCustomVoices] = useState<CustomVoice[]>([])
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false)
+  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 语速预设选项
+  const speedPresets = [
+    { label: "慢速", value: 0.7 },
+    { label: "常规", value: 1.0 },
+    { label: "快速", value: 1.3 },
+    { label: "极快", value: 1.6 },
+  ]
 
   // 搜索功能
   useEffect(() => {
@@ -58,6 +128,8 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
       } else {
         clearInterval(timer)
         setAiStatus("idle")
+        // 打字完成后自动播放语音
+        setTimeout(() => speakText(text), 500)
         callback?.()
       }
     }, 50)
@@ -114,13 +186,14 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     setTimeout(() => setSendingAnimation(false), 800)
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = inputValue
     setInputValue("")
     setIsProcessing(true)
     setAiStatus("thinking")
 
     // 模拟AI响应
     setTimeout(() => {
-      const responseText = generateAIResponse(inputValue)
+      const responseText = generateAIResponse(currentInput)
 
       const timer = typeWriter(responseText, () => {
         const aiResponse: Message = {
@@ -163,15 +236,312 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 语音识别
-  const toggleVoiceRecognition = () => {
-    setIsListening(!isListening)
-    if (!isListening) {
-      setTimeout(() => {
-        setIsListening(false)
-        setInputValue("语音识别功能开发中...")
-      }, 3000)
+  // 检查网络状态
+  const checkNetworkStatus = (): boolean => {
+    return navigator.onLine
+  }
+
+  // 获取错误消息
+  const getErrorMessage = (error: string): string => {
+    switch (error) {
+      case "network":
+        return "网络连接问题，请检查网络后重试"
+      case "not-allowed":
+        return "麦克风权限被拒绝，请在浏览器设置中允许麦克风访问"
+      case "no-speech":
+        return "未检测到语音，请重新尝试"
+      case "audio-capture":
+        return "麦克风无法访问，请检查设备连接"
+      case "service-not-allowed":
+        return "语音服务不可用"
+      case "language-not-supported":
+        return "不支持当前语言"
+      default:
+        return "语音识别出现问题，请重试"
     }
+  }
+
+  // 初始化语音功能
+  useEffect(() => {
+    // 检查浏览器支持
+    const checkSpeechSupport = () => {
+      const recognition = "webkitSpeechRecognition" in window || "SpeechRecognition" in window
+      const synthesis = "speechSynthesis" in window
+      setSpeechSupported(recognition && synthesis)
+
+      if (recognition) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        const recognitionInstance = new SpeechRecognition()
+
+        // 优化配置
+        recognitionInstance.continuous = false
+        recognitionInstance.interimResults = true
+        recognitionInstance.lang = "zh-CN"
+        recognitionInstance.maxAlternatives = 1
+
+        recognitionInstance.onstart = () => {
+          setIsListening(true)
+          setSpeechError("")
+          console.log("语音识别开始")
+        }
+
+        recognitionInstance.onresult = (event) => {
+          let finalTranscript = ""
+          let interimTranscript = ""
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript
+            } else {
+              interimTranscript += transcript
+            }
+          }
+
+          if (finalTranscript) {
+            setInputValue(finalTranscript)
+            setRetryCount(0) // 重置重试计数
+          }
+        }
+
+        recognitionInstance.onerror = (event) => {
+          console.error("语音识别错误:", event.error, event.message)
+          setIsListening(false)
+
+          const errorMsg = getErrorMessage(event.error)
+          setSpeechError(errorMsg)
+
+          // 网络错误时的重试逻辑
+          if (event.error === "network" && retryCount < 2) {
+            setTimeout(() => {
+              if (checkNetworkStatus()) {
+                setRetryCount((prev) => prev + 1)
+                setSpeechError("网络重连中，正在重试...")
+                // 不自动重试，让用户手动重试
+              }
+            }, 2000)
+          }
+        }
+
+        recognitionInstance.onend = () => {
+          setIsListening(false)
+          console.log("语音识别结束")
+        }
+
+        recognitionInstance.onnomatch = () => {
+          setSpeechError("未识别到有效语音，请重新尝试")
+          setIsListening(false)
+        }
+
+        setSpeechRecognition(recognitionInstance)
+      }
+
+      if (synthesis) {
+        setSpeechSynthesis(window.speechSynthesis)
+
+        // 获取可用语音
+        const loadVoices = () => {
+          const availableVoices = window.speechSynthesis.getVoices()
+          setVoices(availableVoices)
+
+          // 优先选择中文语音
+          const chineseVoice = availableVoices.find(
+            (voice) => voice.lang.includes("zh") || voice.lang.includes("CN") || voice.name.includes("Chinese"),
+          )
+          setSelectedVoice(chineseVoice || availableVoices[0])
+
+          // 更新语音设置
+          if (chineseVoice || availableVoices[0]) {
+            setVoiceSettings((prev) => ({
+              ...prev,
+              voice: (chineseVoice || availableVoices[0]).name,
+            }))
+          }
+        }
+
+        // 延迟加载语音列表
+        setTimeout(loadVoices, 100)
+        window.speechSynthesis.onvoiceschanged = loadVoices
+      }
+    }
+
+    if (open) {
+      checkSpeechSupport()
+    }
+  }, [open, retryCount])
+
+  // 语音识别功能
+  const toggleVoiceRecognition = () => {
+    if (!speechSupported || !speechRecognition) {
+      setSpeechError("您的浏览器不支持语音识别功能，请使用Chrome、Edge或Safari浏览器")
+      return
+    }
+
+    if (!checkNetworkStatus()) {
+      setSpeechError("网络连接不可用，语音识别需要网络支持")
+      return
+    }
+
+    if (isListening) {
+      speechRecognition.stop()
+      setIsListening(false)
+      setSpeechError("")
+    } else {
+      try {
+        // 清除之前的错误
+        setSpeechError("")
+        speechRecognition.start()
+      } catch (error) {
+        console.error("启动语音识别失败:", error)
+        setSpeechError("语音识别启动失败，请检查麦克风权限")
+      }
+    }
+  }
+
+  // 语音合成功能
+  const speakText = (text: string) => {
+    if (!speechSupported || !speechSynthesis || !selectedVoice) {
+      console.warn("语音合成不可用")
+      return
+    }
+
+    // 停止当前播放
+    speechSynthesis.cancel()
+
+    // 处理长文本，分段播放
+    const maxLength = 200
+    const textSegments = text.length > maxLength ? text.match(new RegExp(`.{1,${maxLength}}`, "g")) || [text] : [text]
+
+    let currentSegment = 0
+
+    const speakSegment = () => {
+      if (currentSegment >= textSegments.length) {
+        setIsSpeaking(false)
+        return
+      }
+
+      const utterance = new SpeechSynthesisUtterance(textSegments[currentSegment])
+      utterance.voice = selectedVoice
+      utterance.rate = voiceSettings.rate
+      utterance.pitch = voiceSettings.pitch
+      utterance.volume = voiceSettings.volume
+
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+      }
+
+      utterance.onend = () => {
+        currentSegment++
+        if (currentSegment < textSegments.length) {
+          setTimeout(speakSegment, 100) // 短暂停顿后继续下一段
+        } else {
+          setIsSpeaking(false)
+        }
+      }
+
+      utterance.onerror = (event) => {
+        console.error("语音合成错误:", event.error)
+        setIsSpeaking(false)
+      }
+
+      speechSynthesis.speak(utterance)
+    }
+
+    speakSegment()
+  }
+
+  // 停止语音播放
+  const stopSpeaking = () => {
+    if (speechSynthesis) {
+      speechSynthesis.cancel()
+      setIsSpeaking(false)
+    }
+  }
+
+  // 开始录制自定义语音
+  const startCustomVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+
+      setMediaRecorder(recorder)
+      setAudioChunks([])
+      setRecordingDuration(0)
+      setIsRecordingCustomVoice(true)
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          setAudioChunks((prev) => [...prev, event.data])
+        }
+      }
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop())
+        setIsRecordingCustomVoice(false)
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current)
+        }
+      }
+
+      recorder.start()
+
+      // 开始计时
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1)
+      }, 1000)
+    } catch (error) {
+      console.error("录制失败:", error)
+      setSpeechError("无法访问麦克风，请检查权限设置")
+    }
+  }
+
+  // 停止录制自定义语音
+  const stopCustomVoiceRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop()
+    }
+  }
+
+  // 保存自定义语音
+  const saveCustomVoice = (name: string) => {
+    if (audioChunks.length > 0) {
+      const audioBlob = new Blob(audioChunks, { type: "audio/wav" })
+      const customVoice: CustomVoice = {
+        id: Date.now().toString(),
+        name: name || `自定义语音 ${customVoices.length + 1}`,
+        audioBlob,
+        duration: recordingDuration,
+      }
+
+      setCustomVoices((prev) => [...prev, customVoice])
+      setAudioChunks([])
+      setRecordingDuration(0)
+    }
+  }
+
+  // 播放自定义语音预览
+  const playCustomVoicePreview = (voice: CustomVoice) => {
+    if (previewAudio) {
+      previewAudio.pause()
+      setPreviewAudio(null)
+      setIsPlayingPreview(false)
+    }
+
+    const audio = new Audio(URL.createObjectURL(voice.audioBlob))
+    setPreviewAudio(audio)
+    setIsPlayingPreview(true)
+
+    audio.onended = () => {
+      setIsPlayingPreview(false)
+      setPreviewAudio(null)
+    }
+
+    audio.play()
+  }
+
+  // 删除自定义语音
+  const deleteCustomVoice = (voiceId: string) => {
+    setCustomVoices((prev) => prev.filter((voice) => voice.id !== voiceId))
   }
 
   // 文件上传
@@ -182,6 +552,18 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
   // 清空搜索
   const clearSearch = () => {
     setSearchValue("")
+  }
+
+  // 清除语音错误
+  const clearSpeechError = () => {
+    setSpeechError("")
+  }
+
+  // 格式化录制时间
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
   return (
@@ -250,6 +632,21 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             }
           }
 
+          @keyframes recordingPulse {
+            0% {
+              transform: scale(1);
+              opacity: 1;
+            }
+            50% {
+              transform: scale(1.1);
+              opacity: 0.7;
+            }
+            100% {
+              transform: scale(1);
+              opacity: 1;
+            }
+          }
+
           .status-indicator {
             width: 6px;
             height: 6px;
@@ -290,6 +687,10 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             color: #9ca3af;
             font-style: italic;
           }
+
+          .recording-pulse {
+            animation: recordingPulse 1s ease-in-out infinite;
+          }
         `}</style>
 
         {/* 固定头部区域 - 标题栏 */}
@@ -309,10 +710,22 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                   aiStatus === "thinking" || aiStatus === "responding" ? "status-thinking" : "status-idle"
                 }`}
               />
+              {/* 语音控制按钮 */}
+              {isSpeaking && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={stopSpeaking}
+                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-full p-2 ml-2"
+                  title="停止语音播放"
+                >
+                  <MicOff className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* 搜索栏放在标题右侧 */}
+          {/* 搜索栏和设置按钮 */}
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -333,8 +746,235 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                 </Button>
               )}
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2"
+              title="语音设置"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2"
+            >
+              <X className="w-5 h-5" />
+            </Button>
           </div>
         </div>
+
+        {/* 语音设置面板 */}
+        {showVoiceSettings && (
+          <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-gray-50/95 backdrop-blur-xl">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">语音设置</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 语音选择 */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700">语音选择</Label>
+                  <Select
+                    value={voiceSettings.voice}
+                    onValueChange={(value) => {
+                      const voice = voices.find((v) => v.name === value)
+                      if (voice) {
+                        setSelectedVoice(voice)
+                        setVoiceSettings((prev) => ({ ...prev, voice: value }))
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="选择语音" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {voices
+                        .filter((voice) => voice.lang.includes("zh") || voice.lang.includes("CN"))
+                        .map((voice) => (
+                          <SelectItem key={voice.name} value={voice.name}>
+                            {voice.name} ({voice.lang})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 语速控制 */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700">语速控制</Label>
+                  <div className="flex gap-2 mb-2">
+                    {speedPresets.map((preset) => (
+                      <Button
+                        key={preset.label}
+                        variant={voiceSettings.rate === preset.value ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setVoiceSettings((prev) => ({ ...prev, rate: preset.value }))}
+                        className="text-xs"
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>慢</span>
+                      <span>当前: {voiceSettings.rate.toFixed(1)}x</span>
+                      <span>快</span>
+                    </div>
+                    <Slider
+                      value={[voiceSettings.rate]}
+                      onValueChange={([value]) => setVoiceSettings((prev) => ({ ...prev, rate: value }))}
+                      min={0.5}
+                      max={2.0}
+                      step={0.1}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* 音调控制 */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700">音调控制</Label>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>低</span>
+                      <span>当前: {voiceSettings.pitch.toFixed(1)}</span>
+                      <span>高</span>
+                    </div>
+                    <Slider
+                      value={[voiceSettings.pitch]}
+                      onValueChange={([value]) => setVoiceSettings((prev) => ({ ...prev, pitch: value }))}
+                      min={0.5}
+                      max={2.0}
+                      step={0.1}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* 音量控制 */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700">音量控制</Label>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>小</span>
+                      <span>当前: {Math.round(voiceSettings.volume * 100)}%</span>
+                      <span>大</span>
+                    </div>
+                    <Slider
+                      value={[voiceSettings.volume]}
+                      onValueChange={([value]) => setVoiceSettings((prev) => ({ ...prev, volume: value }))}
+                      min={0.1}
+                      max={1.0}
+                      step={0.1}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* 自定义语音录制 */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-gray-700">自定义语音</Label>
+
+                {/* 录制控制 */}
+                <div className="flex items-center gap-3">
+                  {!isRecordingCustomVoice ? (
+                    <Button
+                      onClick={startCustomVoiceRecording}
+                      className="bg-red-500 hover:bg-red-600 text-white"
+                      size="sm"
+                    >
+                      <Mic className="w-4 h-4 mr-2" />
+                      开始录制
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={stopCustomVoiceRecording}
+                        className="bg-red-500 hover:bg-red-600 text-white recording-pulse"
+                        size="sm"
+                      >
+                        <MicOff className="w-4 h-4 mr-2" />
+                        停止录制
+                      </Button>
+                      <span className="text-sm text-red-600 font-mono">{formatRecordingTime(recordingDuration)}</span>
+                    </div>
+                  )}
+
+                  {audioChunks.length > 0 && !isRecordingCustomVoice && (
+                    <Button onClick={() => saveCustomVoice("")} variant="outline" size="sm">
+                      保存录音
+                    </Button>
+                  )}
+                </div>
+
+                {/* 自定义语音列表 */}
+                {customVoices.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-gray-600">已保存的语音</Label>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {customVoices.map((voice) => (
+                        <div key={voice.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{voice.name}</span>
+                            <span className="text-xs text-gray-500">{formatRecordingTime(voice.duration)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              onClick={() => playCustomVoicePreview(voice)}
+                              variant="ghost"
+                              size="sm"
+                              className="p-1 h-6 w-6"
+                              disabled={isPlayingPreview}
+                            >
+                              <Play className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              onClick={() => deleteCustomVoice(voice.id)}
+                              variant="ghost"
+                              size="sm"
+                              className="p-1 h-6 w-6 text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 测试语音 */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => speakText("这是语音测试，您可以听到当前的语音设置效果。")}
+                  variant="outline"
+                  size="sm"
+                  disabled={isSpeaking}
+                >
+                  <Volume2 className="w-4 h-4 mr-2" />
+                  测试语音
+                </Button>
+                <Button
+                  onClick={() =>
+                    setVoiceSettings({ rate: 1.0, pitch: 1.0, volume: 0.8, voice: selectedVoice?.name || "default" })
+                  }
+                  variant="outline"
+                  size="sm"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  重置设置
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 固定功能按钮区域 */}
         <div className="flex-shrink-0 flex items-center justify-center gap-4 px-6 py-3 border-b border-gray-100 bg-white/95 backdrop-blur-xl">
@@ -361,12 +1001,67 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             </div>
           )}
 
+          {/* 语音错误提示 */}
+          {speechError && (
+            <div className="flex-shrink-0 px-6 py-2 bg-red-50 border-b border-red-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <span className="text-sm text-red-600">{speechError}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSpeechError}
+                  className="text-red-600 hover:text-red-800 p-1 h-6 text-xs"
+                >
+                  关闭
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* 数据传输提示 */}
           {sendingAnimation && (
             <div className="flex-shrink-0 px-6 py-2 bg-purple-50 border-b border-purple-100">
               <div className="flex items-center gap-2">
                 <div className="progress-bar rounded-full"></div>
                 <span className="text-sm text-purple-600">数据传输中...</span>
+              </div>
+            </div>
+          )}
+
+          {/* 语音状态提示 */}
+          {isListening && (
+            <div className="flex-shrink-0 px-6 py-2 bg-green-50 border-b border-green-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-600">正在录音中，请说话...</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleVoiceRecognition}
+                  className="text-green-600 hover:text-green-800 p-1 h-6 text-xs ml-2"
+                >
+                  停止录音
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {isSpeaking && (
+            <div className="flex-shrink-0 px-6 py-2 bg-blue-50 border-b border-blue-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-blue-600">正在播放语音...</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={stopSpeaking}
+                  className="text-blue-600 hover:text-blue-800 p-1 h-6 text-xs ml-2"
+                >
+                  停止播放
+                </Button>
               </div>
             </div>
           )}
@@ -420,9 +1115,26 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                           message.content
                         )}
                       </p>
-                      <p className={`text-xs mt-2 ${message.type === "user" ? "text-white/70" : "text-gray-500"}`}>
-                        {message.timestamp.toLocaleTimeString()}
-                      </p>
+                      {message.type === "assistant" && (
+                        <div className="flex items-center justify-between mt-2">
+                          <p className="text-xs text-gray-500">{message.timestamp.toLocaleTimeString()}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => speakText(message.content)}
+                            className="text-gray-400 hover:text-blue-500 p-1 h-6 w-6"
+                            title="播放语音"
+                            disabled={isSpeaking}
+                          >
+                            <Volume2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {message.type === "user" && (
+                        <p className={`text-xs mt-2 ${message.type === "user" ? "text-white/70" : "text-gray-500"}`}>
+                          {message.timestamp.toLocaleTimeString()}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -468,11 +1180,12 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
               <Button
                 size="sm"
                 variant="ghost"
-                className={`absolute right-1 top-1 h-8 w-8 p-0 rounded-full transition-all duration-300 ${
-                  isListening ? "text-red-500 bg-red-50" : "text-gray-500 hover:text-gray-700"
+                className={`absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full transition-all duration-300 ${
+                  isListening ? "text-red-500 bg-red-50 animate-pulse" : "text-gray-500 hover:text-gray-700"
                 }`}
                 onClick={toggleVoiceRecognition}
                 disabled={isProcessing}
+                title={isListening ? "点击停止录音" : "点击开始语音输入"}
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </Button>
@@ -482,16 +1195,17 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
               variant="ghost"
               size="sm"
               onClick={handleFileUpload}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-3 transition-all duration-300"
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full w-10 h-10 p-0 transition-all duration-300"
               disabled={isProcessing}
             >
               <Upload className="w-4 h-4" />
             </Button>
 
             <Button
+              type="button"
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isProcessing}
-              className={`bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-full p-3 transition-all duration-300 ${
+              className={`bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-full w-10 h-10 p-0 transition-all duration-300 ${
                 isFocused && inputValue.trim() ? "send-button-active" : ""
               }`}
             >
