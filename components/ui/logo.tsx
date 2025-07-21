@@ -8,6 +8,11 @@ interface LogoProps {
   variant?: "default" | "white" | "dark"
 }
 
+interface LogoIconProps {
+  size?: "sm" | "md" | "lg"
+  className?: string
+}
+
 const sizeMap = {
   sm: { width: 32, height: 32, textSize: "text-lg" },
   md: { width: 48, height: 48, textSize: "text-xl" },
@@ -46,20 +51,16 @@ export function Logo({ size = "md", className, showText = false, variant = "whit
   )
 }
 
-// 简化版本，只显示图标
-export function LogoIcon({ size = "md", className }: Pick<LogoProps, "size" | "className">) {
-  const { width, height } = sizeMap[size]
+export function LogoIcon({ size = "md", className }: LogoIconProps) {
+  const sizeClasses = {
+    sm: "w-6 h-6",
+    md: "w-8 h-8",
+    lg: "w-12 h-12",
+  }
 
   return (
-    <div className={cn("relative", className)}>
-      <Image
-        src="/logo.png"
-        alt="YYC³"
-        width={width}
-        height={height}
-        className="object-contain drop-shadow-lg"
-        priority
-      />
+    <div className={cn("flex items-center justify-center", sizeClasses[size], className)}>
+      <span className="text-white font-bold text-sm">YYC³</span>
     </div>
   )
 }

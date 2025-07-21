@@ -5,6 +5,10 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import {
   Mic,
   Send,
@@ -19,13 +23,9 @@ import {
   Settings,
   Play,
   RotateCcw,
+  Square,
+  Trash2,
 } from "lucide-react"
-import { LogoIcon } from "@/components/ui/logo"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import type { SpeechRecognition, SpeechSynthesis, SpeechSynthesisVoice } from "web-speech-api"
 
 interface SmartChatDialogProps {
   open: boolean
@@ -58,10 +58,9 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState("")
   const [searchValue, setSearchValue] = useState("")
-  // 添加语音相关状态
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null)
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null)
   const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null)
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null)
@@ -74,17 +73,13 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
   const [aiStatus, setAiStatus] = useState<"idle" | "thinking" | "responding">("idle")
   const [sendingAnimation, setSendingAnimation] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
-
-  // 语音设置相关状态
   const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
-    rate: 1.0, // 常规语速
+    rate: 1.0,
     pitch: 1.0,
     volume: 0.8,
     voice: "default",
   })
-
-  // 自定义语音录制状态
   const [isRecordingCustomVoice, setIsRecordingCustomVoice] = useState(false)
   const [customVoices, setCustomVoices] = useState<CustomVoice[]>([])
   const [recordingDuration, setRecordingDuration] = useState(0)
@@ -97,7 +92,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 语速预设选项
   const speedPresets = [
     { label: "慢速", value: 0.7 },
     { label: "常规", value: 1.0 },
@@ -105,7 +99,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     { label: "极快", value: 1.6 },
   ]
 
-  // 搜索功能
   useEffect(() => {
     if (!searchValue.trim()) {
       setFilteredMessages(messages)
@@ -115,7 +108,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }, [messages, searchValue])
 
-  // 打字机效果
   const typeWriter = (text: string, callback?: () => void) => {
     let index = 0
     setTypingText("")
@@ -128,7 +120,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
       } else {
         clearInterval(timer)
         setAiStatus("idle")
-        // 打字完成后自动播放语音
         setTimeout(() => speakText(text), 500)
         callback?.()
       }
@@ -137,7 +128,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     return timer
   }
 
-  // 自动滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -146,7 +136,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     scrollToBottom()
   }, [filteredMessages, typingText])
 
-  // 初始化欢迎消息
   useEffect(() => {
     if (open && messages.length === 0) {
       const welcomeText = `"云枢"二字蕴含深意，智慧二字如红灯笼，当"言"成为破局算法，"语"便成了未来接口——我们拆解传统数据，用0与1重构内容维度。此刻对机，便是文明升级的总枢纽。
@@ -170,7 +159,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }, [open, messages.length])
 
-  // 发送消息
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isProcessing) return
 
@@ -181,7 +169,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
       timestamp: new Date(),
     }
 
-    // 发送动效
     setSendingAnimation(true)
     setTimeout(() => setSendingAnimation(false), 800)
 
@@ -191,7 +178,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     setIsProcessing(true)
     setAiStatus("thinking")
 
-    // 模拟AI响应
     setTimeout(() => {
       const responseText = generateAIResponse(currentInput)
 
@@ -211,7 +197,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }, 1000)
   }
 
-  // 生成AI响应
   const generateAIResponse = (input: string): string => {
     const lowerInput = input.toLowerCase()
 
@@ -236,12 +221,10 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 检查网络状态
   const checkNetworkStatus = (): boolean => {
     return navigator.onLine
   }
 
-  // 获取错误消息
   const getErrorMessage = (error: string): string => {
     switch (error) {
       case "network":
@@ -261,19 +244,16 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 初始化语音功能
   useEffect(() => {
-    // 检查浏览器支持
     const checkSpeechSupport = () => {
       const recognition = "webkitSpeechRecognition" in window || "SpeechRecognition" in window
       const synthesis = "speechSynthesis" in window
       setSpeechSupported(recognition && synthesis)
 
       if (recognition) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
         const recognitionInstance = new SpeechRecognition()
 
-        // 优化配置
         recognitionInstance.continuous = false
         recognitionInstance.interimResults = true
         recognitionInstance.lang = "zh-CN"
@@ -285,7 +265,7 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           console.log("语音识别开始")
         }
 
-        recognitionInstance.onresult = (event) => {
+        recognitionInstance.onresult = (event: any) => {
           let finalTranscript = ""
           let interimTranscript = ""
 
@@ -300,24 +280,22 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
 
           if (finalTranscript) {
             setInputValue(finalTranscript)
-            setRetryCount(0) // 重置重试计数
+            setRetryCount(0)
           }
         }
 
-        recognitionInstance.onerror = (event) => {
+        recognitionInstance.onerror = (event: any) => {
           console.error("语音识别错误:", event.error, event.message)
           setIsListening(false)
 
           const errorMsg = getErrorMessage(event.error)
           setSpeechError(errorMsg)
 
-          // 网络错误时的重试逻辑
           if (event.error === "network" && retryCount < 2) {
             setTimeout(() => {
               if (checkNetworkStatus()) {
                 setRetryCount((prev) => prev + 1)
                 setSpeechError("网络重连中，正在重试...")
-                // 不自动重试，让用户手动重试
               }
             }, 2000)
           }
@@ -339,18 +317,15 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
       if (synthesis) {
         setSpeechSynthesis(window.speechSynthesis)
 
-        // 获取可用语音
         const loadVoices = () => {
           const availableVoices = window.speechSynthesis.getVoices()
           setVoices(availableVoices)
 
-          // 优先选择中文语音
           const chineseVoice = availableVoices.find(
             (voice) => voice.lang.includes("zh") || voice.lang.includes("CN") || voice.name.includes("Chinese"),
           )
           setSelectedVoice(chineseVoice || availableVoices[0])
 
-          // 更新语音设置
           if (chineseVoice || availableVoices[0]) {
             setVoiceSettings((prev) => ({
               ...prev,
@@ -359,7 +334,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           }
         }
 
-        // 延迟加载语音列表
         setTimeout(loadVoices, 100)
         window.speechSynthesis.onvoiceschanged = loadVoices
       }
@@ -370,7 +344,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }, [open, retryCount])
 
-  // 语音识别功能
   const toggleVoiceRecognition = () => {
     if (!speechSupported || !speechRecognition) {
       setSpeechError("您的浏览器不支持语音识别功能，请使用Chrome、Edge或Safari浏览器")
@@ -388,7 +361,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
       setSpeechError("")
     } else {
       try {
-        // 清除之前的错误
         setSpeechError("")
         speechRecognition.start()
       } catch (error) {
@@ -398,17 +370,14 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 语音合成功能
   const speakText = (text: string) => {
     if (!speechSupported || !speechSynthesis || !selectedVoice) {
       console.warn("语音合成不可用")
       return
     }
 
-    // 停止当前播放
     speechSynthesis.cancel()
 
-    // 处理长文本，分段播放
     const maxLength = 200
     const textSegments = text.length > maxLength ? text.match(new RegExp(`.{1,${maxLength}}`, "g")) || [text] : [text]
 
@@ -433,7 +402,7 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
       utterance.onend = () => {
         currentSegment++
         if (currentSegment < textSegments.length) {
-          setTimeout(speakSegment, 100) // 短暂停顿后继续下一段
+          setTimeout(speakSegment, 100)
         } else {
           setIsSpeaking(false)
         }
@@ -450,7 +419,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     speakSegment()
   }
 
-  // 停止语音播放
   const stopSpeaking = () => {
     if (speechSynthesis) {
       speechSynthesis.cancel()
@@ -458,7 +426,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 开始录制自定义语音
   const startCustomVoiceRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -485,7 +452,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
 
       recorder.start()
 
-      // 开始计时
       recordingTimerRef.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1)
       }, 1000)
@@ -495,14 +461,12 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 停止录制自定义语音
   const stopCustomVoiceRecording = () => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
       mediaRecorder.stop()
     }
   }
 
-  // 保存自定义语音
   const saveCustomVoice = (name: string) => {
     if (audioChunks.length > 0) {
       const audioBlob = new Blob(audioChunks, { type: "audio/wav" })
@@ -519,7 +483,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     }
   }
 
-  // 播放自定义语音预览
   const playCustomVoicePreview = (voice: CustomVoice) => {
     if (previewAudio) {
       previewAudio.pause()
@@ -539,27 +502,22 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     audio.play()
   }
 
-  // 删除自定义语音
   const deleteCustomVoice = (voiceId: string) => {
     setCustomVoices((prev) => prev.filter((voice) => voice.id !== voiceId))
   }
 
-  // 文件上传
   const handleFileUpload = () => {
     fileInputRef.current?.click()
   }
 
-  // 清空搜索
   const clearSearch = () => {
     setSearchValue("")
   }
 
-  // 清除语音错误
   const clearSpeechError = () => {
     setSpeechError("")
   }
 
-  // 格式化录制时间
   const formatRecordingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -693,24 +651,21 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           }
         `}</style>
 
-        {/* 固定头部区域 - 标题栏 */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/95 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
-              <LogoIcon size="sm" />
+              <span className="text-white text-sm font-bold">YYC³</span>
             </div>
             <div className="flex items-center gap-3">
               <div>
                 <h2 className="text-xl font-semibold text-gray-800">YYC³ 云枢智能助手</h2>
                 <p className="text-gray-600 text-sm">深栈智能，万象归元</p>
               </div>
-              {/* 智能状态呼吸灯 */}
               <div
                 className={`status-indicator ${
                   aiStatus === "thinking" || aiStatus === "responding" ? "status-thinking" : "status-idle"
                 }`}
               />
-              {/* 语音控制按钮 */}
               {isSpeaking && (
                 <Button
                   variant="ghost"
@@ -725,7 +680,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             </div>
           </div>
 
-          {/* 搜索栏和设置按钮 */}
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -766,14 +720,12 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           </div>
         </div>
 
-        {/* 语音设置面板 */}
         {showVoiceSettings && (
           <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-gray-50/95 backdrop-blur-xl">
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">语音设置</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 语音选择 */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-gray-700">语音选择</Label>
                   <Select
@@ -801,7 +753,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                   </Select>
                 </div>
 
-                {/* 语速控制 */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-gray-700">语速控制</Label>
                   <div className="flex gap-2 mb-2">
@@ -834,7 +785,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                   </div>
                 </div>
 
-                {/* 音调控制 */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-gray-700">音调控制</Label>
                   <div className="space-y-2">
@@ -854,7 +804,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                   </div>
                 </div>
 
-                {/* 音量控制 */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium text-gray-700">音量控制</Label>
                   <div className="space-y-2">
@@ -877,11 +826,9 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
 
               <Separator />
 
-              {/* 自定义语音录制 */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium text-gray-700">自定义语音</Label>
 
-                {/* 录制控制 */}
                 <div className="flex items-center gap-3">
                   {!isRecordingCustomVoice ? (
                     <Button
@@ -899,7 +846,7 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                         className="bg-red-500 hover:bg-red-600 text-white recording-pulse"
                         size="sm"
                       >
-                        <MicOff className="w-4 h-4 mr-2" />
+                        <Square className="w-4 h-4 mr-2" />
                         停止录制
                       </Button>
                       <span className="text-sm text-red-600 font-mono">{formatRecordingTime(recordingDuration)}</span>
@@ -913,7 +860,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                   )}
                 </div>
 
-                {/* 自定义语音列表 */}
                 {customVoices.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-xs text-gray-600">已保存的语音</Label>
@@ -940,7 +886,7 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                               size="sm"
                               className="p-1 h-6 w-6 text-red-500 hover:text-red-700"
                             >
-                              <X className="w-3 h-3" />
+                              <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>
                         </div>
@@ -950,7 +896,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                 )}
               </div>
 
-              {/* 测试语音 */}
               <div className="flex gap-2">
                 <Button
                   onClick={() => speakText("这是语音测试，您可以听到当前的语音设置效果。")}
@@ -976,7 +921,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           </div>
         )}
 
-        {/* 固定功能按钮区域 */}
         <div className="flex-shrink-0 flex items-center justify-center gap-4 px-6 py-3 border-b border-gray-100 bg-white/95 backdrop-blur-xl">
           <Button variant="ghost" size="sm" className="text-gray-600 hover:bg-gray-100 rounded-full px-4 py-2">
             <Lightbulb className="w-4 h-4 mr-2" />
@@ -988,9 +932,7 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           </Button>
         </div>
 
-        {/* 可滚动的消息区域 */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* 搜索结果提示 */}
           {searchValue && (
             <div className="flex-shrink-0 px-6 py-2 bg-blue-50 border-b border-blue-100">
               <p className="text-sm text-blue-600">
@@ -1001,7 +943,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             </div>
           )}
 
-          {/* 语音错误提示 */}
           {speechError && (
             <div className="flex-shrink-0 px-6 py-2 bg-red-50 border-b border-red-100">
               <div className="flex items-center justify-between">
@@ -1021,7 +962,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             </div>
           )}
 
-          {/* 数据传输提示 */}
           {sendingAnimation && (
             <div className="flex-shrink-0 px-6 py-2 bg-purple-50 border-b border-purple-100">
               <div className="flex items-center gap-2">
@@ -1031,7 +971,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             </div>
           )}
 
-          {/* 语音状态提示 */}
           {isListening && (
             <div className="flex-shrink-0 px-6 py-2 bg-green-50 border-b border-green-100">
               <div className="flex items-center gap-2">
@@ -1066,11 +1005,9 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
             </div>
           )}
 
-          {/* 消息列表 - 独立滚动区域 */}
           <div className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-6 space-y-6">
-                {/* 打字机效果显示区域 */}
                 {typingText && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] p-4 rounded-2xl bg-gray-100 text-gray-800 border border-gray-200 relative">
@@ -1078,7 +1015,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                         {typingText}
                         <span className="inline-block w-2 h-5 bg-gray-400 ml-1 animate-pulse"></span>
                       </p>
-                      {/* 进度光条 */}
                       {aiStatus === "responding" && (
                         <div className="absolute right-2 top-2 w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
                           <div className="progress-bar rounded-full"></div>
@@ -1139,7 +1075,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                   </div>
                 ))}
 
-                {/* AI处理中指示器 */}
                 {isProcessing && !typingText && (
                   <div className="flex justify-start">
                     <div className="bg-gray-100 text-gray-800 border border-gray-200 p-4 rounded-2xl relative">
@@ -1147,7 +1082,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
                         <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
                         <span className="text-sm typing-placeholder">▌▌▌ 正在构建创意矩阵...</span>
                       </div>
-                      {/* 进度光条 */}
                       <div className="absolute right-2 top-2 w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
                         <div className="progress-bar rounded-full"></div>
                       </div>
@@ -1161,7 +1095,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           </div>
         </div>
 
-        {/* 固定底部输入区域 */}
         <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-white/95 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
@@ -1214,7 +1147,6 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
           </div>
         </div>
 
-        {/* 隐藏的文件输入 */}
         <input
           ref={fileInputRef}
           type="file"
@@ -1231,3 +1163,5 @@ export function SmartChatDialog({ open, onOpenChange }: SmartChatDialogProps) {
     </Dialog>
   )
 }
+
+export default SmartChatDialog

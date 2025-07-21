@@ -1,558 +1,455 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { User, Settings, LogOut, ChevronLeft, ChevronRight, Code, Cpu } from "lucide-react"
-import Link from "next/link"
-import { useUser, useIsAuthenticated } from "@/lib/store"
-import { useAuth } from "@/components/auth/auth-provider"
-import { LoginDialog } from "@/components/auth/login-dialog"
-import { NotificationPanel } from "@/components/notification-panel"
-import { LogoIcon } from "@/components/ui/logo"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { SmartChatDialog } from "@/components/smart-chat-dialog"
+import {
+  Brain,
+  ImageIcon,
+  Video,
+  Music,
+  MessageSquare,
+  Zap,
+  Users,
+  Star,
+  ArrowRight,
+  Sparkles,
+  Shield,
+  Cloud,
+  ChevronRight,
+  Play,
+  Calendar,
+  Check,
+  Tag,
+  Book,
+} from "lucide-react"
+import { ImprovedPageLayout } from "@/components/improved-page-layout"
 
 export default function HomePage() {
-  const [showLoginDialog, setShowLoginDialog] = useState(false)
-  const [showChatDialog, setShowChatDialog] = useState(false)
-  const [showMainInterface, setShowMainInterface] = useState(false)
-  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(true)
-  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(true)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number }>>([])
-  const user = useUser()
-  const isAuthenticated = useIsAuthenticated()
-  const { logout } = useAuth()
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [activeDemo, setActiveDemo] = useState<string | null>(null)
 
-  // 核心功能模块 - 只保留深栈代码和智能引擎
-  const coreModules = [
+  const features = [
     {
-      id: "deep-code",
-      title: "深栈代码",
-      subtitle: "YYC³驱动的智能编程与开发部署平台",
-      icon: Code,
-      href: "/deep-stack",
-      color: "from-green-500 to-emerald-500",
-      position: "left",
+      icon: Brain,
+      title: "智能引擎",
+      description: "强大的AI核心，支持多模态理解与生成",
+      href: "/engine",
+      color: "from-purple-500 to-blue-500",
+      stats: "99.9% 准确率",
     },
     {
-      id: "smart-engine",
-      title: "智能引擎",
-      subtitle: "YYC³驱动的万象云枢智能API调用中心",
-      icon: Cpu,
-      href: "/engine",
+      icon: ImageIcon,
+      title: "图像生成",
+      description: "AI驱动的图像创作与编辑工具",
+      href: "/image",
+      color: "from-pink-500 to-rose-500",
+      stats: "10M+ 图片生成",
+    },
+    {
+      icon: Video,
+      title: "视频创作",
+      description: "智能视频生成与后期处理",
+      href: "/video",
       color: "from-orange-500 to-red-500",
-      position: "right",
+      stats: "4K 高清输出",
+    },
+    {
+      icon: Music,
+      title: "音乐制作",
+      description: "AI音乐创作与音频处理",
+      href: "/music",
+      color: "from-green-500 to-emerald-500",
+      stats: "专业级音质",
     },
   ]
 
-  // 创建粒子爆炸效果
-  const createParticleBurst = (x: number, y: number) => {
-    const newParticles = Array.from({ length: 12 }, (_, i) => ({
-      id: Date.now() + i,
-      x,
-      y,
-    }))
-    setParticles(newParticles)
+  const stats = [
+    { label: "活跃用户", value: "1M+", icon: Users },
+    { label: "AI模型", value: "50+", icon: Brain },
+    { label: "处理请求", value: "100M+", icon: Zap },
+    { label: "满意度", value: "98%", icon: Star },
+  ]
 
-    // 3秒后清除粒子
-    setTimeout(() => {
-      setParticles([])
-    }, 3000)
-  }
+  const testimonials = [
+    {
+      name: "张明",
+      role: "创意总监",
+      company: "数字艺术工作室",
+      content: "YYC³平台彻底改变了我们的创作流程，AI助手的智能程度令人惊叹。",
+      avatar: "/placeholder.svg?height=40&width=40&text=张明",
+      rating: 5,
+    },
+    {
+      name: "李华",
+      role: "产品经理",
+      company: "科技创新公司",
+      content: "从概念到实现，YYC³帮助我们快速原型化想法，大大提升了工作效率。",
+      avatar: "/placeholder.svg?height=40&width=40&text=李华",
+      rating: 5,
+    },
+    {
+      name: "王芳",
+      role: "独立开发者",
+      company: "自由职业",
+      content: "作为个人开发者，YYC³让我能够独立完成以前需要团队才能做的项目。",
+      avatar: "/placeholder.svg?height=40&width=40&text=王芳",
+      rating: 5,
+    },
+  ]
 
-  // 激活主界面
-  const handleActivateInterface = (e: React.MouseEvent) => {
-    if (isTransitioning) return
+  const recentUpdates = [
+    {
+      title: "YYC³ Music 2.0 发布",
+      description: "全新的音乐生成算法，支持更多音乐风格",
+      date: "2024年1月15日",
+      type: "功能更新",
+      badge: "新功能",
+    },
+    {
+      title: "智能引擎性能优化",
+      description: "响应速度提升50%，准确率达到99.9%",
+      date: "2024年1月10日",
+      type: "性能优化",
+      badge: "优化",
+    },
+    {
+      title: "多语言支持扩展",
+      description: "新增支持15种语言的AI对话功能",
+      date: "2024年1月5日",
+      type: "功能扩展",
+      badge: "扩展",
+    },
+  ]
 
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+  return (
+    <ImprovedPageLayout>
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+        <div className="absolute inset-0 bg-[url('/hero-bg.png')] bg-cover bg-center opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-900/80 to-blue-900/80" />
 
-    setIsTransitioning(true)
-    createParticleBurst(x, y)
+        <div className="relative container mx-auto px-4 py-24 lg:py-32">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+                <Sparkles className="w-3 h-3 mr-1" />
+                AI驱动的创作平台
+              </Badge>
+            </div>
 
-    // 延迟显示主界面，配合动画
-    setTimeout(() => {
-      setShowMainInterface(true)
-      setIsTransitioning(false)
-    }, 1500)
-  }
+            <h1 className="text-5xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+              YYC³ AI平台
+            </h1>
 
-  // 点击屏幕激活聊天
-  const handleScreenClick = (e: React.MouseEvent) => {
-    if (!showMainInterface) {
-      handleActivateInterface(e)
-      return
-    }
+            <p className="text-xl lg:text-2xl mb-4 text-blue-100">深栈智能，万象归元</p>
 
-    const target = e.target as HTMLElement
-    if (
-      target.closest("button") ||
-      target.closest("a") ||
-      target.closest("[role='button']") ||
-      target.closest(".no-chat-trigger")
-    ) {
-      return
-    }
-    setShowChatDialog(true)
-  }
+            <p className="text-lg mb-8 text-blue-200 max-w-2xl mx-auto leading-relaxed">
+              融合前沿AI技术，打造全方位智能创作生态。从概念到实现，从创意到产品，让每一个想法都能成为现实。
+            </p>
 
-  // 如果还没有激活主界面，显示启动页
-  if (!showMainInterface) {
-    return (
-      <div
-        className={`min-h-screen cursor-pointer flex items-center justify-center px-[200px] relative overflow-hidden ${
-          isTransitioning ? "transitioning" : ""
-        }`}
-        onClick={handleScreenClick}
-        style={{
-          backgroundImage: `
-            linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%),
-            linear-gradient(45deg, transparent 30%, rgba(199, 125, 255, 0.1) 50%, transparent 70%)
-          `,
-          backgroundSize: "100% 100%, 200% 100%",
-          backgroundPosition: "0% 0%, 100% 0%",
-          animation: "flowingSpectrum 8s ease-in-out infinite",
-        }}
-      >
-        {/* 动态光谱流背景 */}
-        <style jsx>{`
-          @keyframes flowingSpectrum {
-            0% {
-              background-position: 0% 0%, 100% 0%;
-            }
-            50% {
-              background-position: 0% 0%, -100% 0%;
-            }
-            100% {
-              background-position: 0% 0%, 100% 0%;
-            }
-          }
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              <Button
+                size="lg"
+                onClick={() => setIsChatOpen(true)}
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <MessageSquare className="w-5 h-5 mr-2" />
+                开始对话
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
 
-          @keyframes logoParticle {
-            0% {
-              opacity: 0;
-              transform: scale(0.8);
-            }
-            50% {
-              opacity: 1;
-              transform: scale(1.1);
-            }
-            100% {
-              opacity: 0;
-              transform: scale(0.8);
-            }
-          }
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg rounded-full backdrop-blur-sm bg-transparent"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                观看演示
+              </Button>
+            </div>
 
-          @keyframes sloganGlow {
-            0% {
-              text-shadow: 0 2px 5px rgba(255, 255, 255, 0.2);
-              color: #ffffff;
-            }
-            50% {
-              text-shadow: 0 4px 8px rgba(224, 231, 255, 0.4);
-              color: #e0e7ff;
-            }
-            100% {
-              text-shadow: 0 2px 5px rgba(255, 255, 255, 0.2);
-              color: #ffffff;
-            }
-          }
-
-          @keyframes breathingButton {
-            0% {
-              opacity: 0.95;
-              box-shadow: 0 0 0px rgba(255, 255, 255, 0.3);
-            }
-            50% {
-              opacity: 1;
-              box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
-            }
-            100% {
-              opacity: 0.95;
-              box-shadow: 0 0 0px rgba(255, 255, 255, 0.3);
-            }
-          }
-
-          @keyframes particleExplosion {
-            0% {
-              opacity: 1;
-              transform: translate(0, 0) scale(1);
-            }
-            100% {
-              opacity: 0;
-              transform: translate(var(--dx), var(--dy)) scale(0.3);
-            }
-          }
-
-          @keyframes logoTransition {
-            0% {
-              transform: rotateY(0deg) scale(1);
-            }
-            50% {
-              transform: rotateY(90deg) scale(1.1);
-            }
-            100% {
-              transform: rotateY(180deg) scale(0.9);
-            }
-          }
-
-          .slogan {
-            animation: sloganGlow 4s ease-in-out infinite;
-            transition: transform 0.3s ease;
-          }
-
-          .slogan:hover {
-            transform: translateY(-2px);
-            animation-play-state: paused;
-            text-shadow: 0 4px 8px rgba(255, 255, 255, 0.4) !important;
-          }
-
-          .breathing-button {
-            animation: breathingButton 3s ease-in-out infinite;
-          }
-
-          .transitioning .logo-container {
-            animation: logoTransition 1.5s ease-in-out forwards;
-          }
-
-          .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: radial-gradient(circle, #c77dff 0%, #646cff 100%);
-            border-radius: 50%;
-            pointer-events: none;
-            animation: particleExplosion 3s ease-out forwards;
-          }
-        `}</style>
-
-        {/* 粒子效果 */}
-        {particles.map((particle, index) => (
-          <div
-            key={particle.id}
-            className="particle"
-            style={
-              {
-                left: particle.x,
-                top: particle.y,
-                "--dx": `${(Math.random() - 0.5) * 200}px`,
-                "--dy": `${(Math.random() - 0.5) * 200}px`,
-                animationDelay: `${index * 0.1}s`,
-              } as React.CSSProperties
-            }
-          />
-        ))}
-
-        <div className="text-center space-y-8 w-full">
-          {/* Logo */}
-          <div className="flex items-center justify-center mb-12">
-            <div className="relative logo-container">
-              <div className="w-32 h-32 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30 relative overflow-hidden">
-                <LogoIcon size="xl" className="scale-150 relative z-10" />
-                {/* Logo 粒子效果 */}
-                <div
-                  className="absolute inset-0 opacity-0"
-                  style={{
-                    background: `radial-gradient(circle, rgba(199, 125, 255, 0.3) 0%, transparent 70%)`,
-                    animation: "logoParticle 2s ease-in-out infinite",
-                    animationDelay: "1s",
-                  }}
-                />
-              </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-3xl mx-auto">
+              {stats.map((stat, index) => (
+                <div key={index} className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <stat.icon className="w-6 h-6 text-blue-300" />
+                  </div>
+                  <div className="text-2xl font-bold text-white">{stat.value}</div>
+                  <div className="text-sm text-blue-200">{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* 标题 */}
-          <div className="space-y-6">
-            <h1 className="text-4xl font-bold text-white tracking-wide slogan">万象归元于云枢｜深栈智启新纪元</h1>
-            <p className="text-lg sm:text-xl lg:text-xl text-white/90 font-bold tracking-wider slogan whitespace-nowrap sm:whitespace-normal max-w-6xl mx-auto">
-              All Phenomena Converge to the Cloud Pivot | DeepStack Intelligence Ushers in a New Era.
+      {/* Features Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">核心功能</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              四大核心模块，覆盖创作全流程，让AI成为您最得力的创作伙伴
             </p>
           </div>
 
-          {/* 激活提示 */}
-          <div className="mt-16">
-            <div className="inline-flex items-center px-8 py-4 bg-white/10 backdrop-blur-md rounded-full border border-white/20 breathing-button">
-              <span className="text-white text-lg font-medium">Tap YanYu Cloud³</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // 主界面 - 显示两个核心功能模块
-  return (
-    <div
-      className="min-h-screen cursor-pointer relative overflow-hidden"
-      onClick={handleScreenClick}
-      style={{
-        backgroundImage: `
-          linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%),
-          linear-gradient(45deg, transparent 30%, rgba(199, 125, 255, 0.1) 50%, transparent 70%)
-        `,
-        backgroundSize: "100% 100%, 200% 100%",
-        backgroundPosition: "0% 0%, 100% 0%",
-        animation: "flowingSpectrum 8s ease-in-out infinite",
-      }}
-    >
-      <style jsx>{`
-        @keyframes flowingSpectrum {
-          0% {
-            background-position: 0% 0%, 100% 0%;
-          }
-          50% {
-            background-position: 0% 0%, -100% 0%;
-          }
-          100% {
-            background-position: 0% 0%, 100% 0%;
-          }
-        }
-
-        @keyframes sidebarHover {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(5px);
-          }
-        }
-
-        .sidebar-item:hover {
-          animation: sidebarHover 0.3s ease-in-out;
-        }
-      `}</style>
-
-      {/* 顶部导航栏 */}
-      <nav className="border-b border-white/10 bg-white/5 backdrop-blur-md no-chat-trigger">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/30">
-                <LogoIcon size="sm" />
-              </div>
-              <span className="text-2xl font-bold text-white">YanYu Cloud³</span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              {/* 平台概览按钮 */}
-              <Link href="/overview">
-                <Button
-                  variant="outline"
-                  className="border-white/20 text-white bg-transparent hover:bg-white/10 px-4 py-2 rounded-full"
-                >
-                  平台概览
-                </Button>
-              </Link>
-
-              {/* 通知面板 */}
-              {isAuthenticated && <NotificationPanel />}
-
-              {/* 用户菜单或登录按钮 */}
-              {isAuthenticated && user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                        <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                          {user.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <Card
+                key={index}
+                className="group hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-0 bg-gradient-to-br from-white to-gray-50 overflow-hidden"
+              >
+                <CardHeader className="pb-4">
+                  <div
+                    className={`w-12 h-12 rounded-xl bg-gradient-to-r ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
+                  >
+                    <feature.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <CardTitle className="text-xl font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
+                    {feature.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-gray-600 mb-4 leading-relaxed">
+                    {feature.description}
+                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-xs">
+                      {feature.stats}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-600 hover:text-purple-700 p-0"
+                      onClick={() => (window.location.href = feature.href)}
+                    >
+                      探索 <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-slate-800 border-white/20" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none text-white">{user.name}</p>
-                        <p className="text-xs leading-none text-white/70">{user.email}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Technology Stack */}
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">技术架构</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">基于最新AI技术栈，构建稳定可靠的智能服务平台</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center mb-4">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <CardTitle className="text-xl font-semibold">AI核心引擎</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    大语言模型 (LLM)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    多模态理解
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    深度学习框架
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    实时推理优化
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mb-4">
+                  <Cloud className="w-6 h-6 text-white" />
+                </div>
+                <CardTitle className="text-xl font-semibold">云端基础设施</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    弹性计算集群
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    分布式存储
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    负载均衡
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    自动扩缩容
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mb-4">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <CardTitle className="text-xl font-semibold">安全与隐私</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    端到端加密
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    数据隐私保护
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    访问控制
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    合规认证
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">用户评价</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">来自全球用户的真实反馈，见证YYC³的卓越表现</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-1 mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 mb-6 leading-relaxed">"{testimonial.content}"</p>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={testimonial.avatar || "/placeholder.svg"}
+                      alt={testimonial.name}
+                      className="w-10 h-10 rounded-full"
+                    />
+                    <div>
+                      <div className="font-semibold text-gray-900">{testimonial.name}</div>
+                      <div className="text-sm text-gray-500">
+                        {testimonial.role} · {testimonial.company}
                       </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-white/20" />
-                    <DropdownMenuItem className="text-white hover:bg-white/10">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>个人资料</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-white hover:bg-white/10">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>设置</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-white/20" />
-                    <DropdownMenuItem className="text-white hover:bg-white/10" onClick={logout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>退出登录</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button
-                  onClick={() => setShowLoginDialog(true)}
-                  className="bg-white/20 backdrop-blur-md border border-white/30 text-white hover:bg-white/30 px-6 py-2 rounded-full"
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Recent Updates */}
+      <section className="py-20 bg-gradient-to-br from-purple-50 to-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">最新动态</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">持续创新，不断进步，为您带来更好的AI体验</p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <div className="space-y-6">
+              {recentUpdates.map((update, index) => (
+                <Card
+                  key={index}
+                  className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                 >
-                  注册 / 登录
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="flex h-[calc(100vh-80px)] relative">
-        {/* 左侧深栈代码模块 */}
-        <div
-          className={`transition-all duration-300 ease-in-out no-chat-trigger ${
-            leftSidebarCollapsed ? "w-16" : "w-80"
-          } group`}
-          onMouseEnter={() => setLeftSidebarCollapsed(false)}
-          onMouseLeave={() => setLeftSidebarCollapsed(true)}
-        >
-          <div className="h-full p-4 relative">
-            {/* 折叠/展开按钮 */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-4 right-2 z-10 bg-transparent border-0 text-white/20 hover:text-white hover:bg-white/10 active:text-white active:bg-white/20 rounded-full p-2 transition-all duration-300 animate-pulse hover:animate-none active:animate-none"
-              onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-            >
-              {leftSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </Button>
-
-            <div className="space-y-3 mt-12 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {coreModules
-                .filter((module) => module.position === "left")
-                .map((module) => {
-                  const IconComponent = module.icon
-                  return (
-                    <Link key={module.id} href={module.href}>
-                      <div className="sidebar-item group/item bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-12 h-12 bg-gradient-to-r ${module.color} rounded-xl flex items-center justify-center group-hover/item:scale-110 transition-transform duration-300 flex-shrink-0`}
-                          >
-                            <IconComponent className="w-6 h-6 text-white" />
-                          </div>
-                          <div
-                            className={`flex-1 transition-all duration-300 ${
-                              leftSidebarCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                            }`}
-                          >
-                            <h3 className="text-white font-semibold text-lg whitespace-nowrap">{module.title}</h3>
-                            <p className="text-white/70 text-sm leading-tight whitespace-nowrap">{module.subtitle}</p>
-                          </div>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-xl font-semibold text-gray-900">{update.title}</h3>
+                          <Badge variant="secondary" className="text-xs">
+                            {update.badge}
+                          </Badge>
+                        </div>
+                        <p className="text-gray-600 mb-3 leading-relaxed">{update.description}</p>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {update.date}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Tag className="w-4 h-4" />
+                            {update.type}
+                          </span>
                         </div>
                       </div>
-                    </Link>
-                  )
-                })}
+                      <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700">
+                        查看详情 <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         </div>
+      </section>
 
-        {/* 中央空白区域 - 点击激活聊天 */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center space-y-8">
-            <div className="w-24 h-24 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 mx-auto">
-              <LogoIcon size="lg" />
-            </div>
-            <div className="space-y-4">
-              <h2 className="text-4xl font-bold text-white">点击任意位置开始对话</h2>
-              <p className="text-white/80 text-lg">与YYC³云枢智能助手开启创意之旅</p>
-            </div>
-            <div className="flex justify-center space-x-8 mt-12">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center mb-3 mx-auto">
-                  <Code className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-white/80 font-medium">深栈代码</p>
-                <p className="text-white/60 text-sm">智能编程环境</p>
-              </div>
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center mb-3 mx-auto">
-                  <Cpu className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-white/80 font-medium">智能引擎</p>
-                <p className="text-white/60 text-sm">API调用中心</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 右侧智能引擎模块 */}
-        <div
-          className={`transition-all duration-300 ease-in-out no-chat-trigger ${
-            rightSidebarCollapsed ? "w-16" : "w-80"
-          } group`}
-          onMouseEnter={() => setRightSidebarCollapsed(false)}
-          onMouseLeave={() => setRightSidebarCollapsed(true)}
-        >
-          <div className="h-full p-4 relative">
-            {/* 折叠/展开按钮 */}
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-purple-900 via-blue-900 to-indigo-900 text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold mb-6">准备开始您的AI创作之旅？</h2>
+          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">加入数百万用户的行列，体验前所未有的AI创作体验</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-4 left-2 z-10 bg-transparent border-0 text-white/20 hover:text-white hover:bg-white/10 active:text-white active:bg-white/20 rounded-full p-2 transition-all duration-300 animate-pulse hover:animate-none active:animate-none"
-              onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+              size="lg"
+              onClick={() => setIsChatOpen(true)}
+              className="bg-white text-purple-900 hover:bg-gray-100 px-8 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
-              {rightSidebarCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <MessageSquare className="w-5 h-5 mr-2" />
+              立即开始
             </Button>
-
-            <div className="space-y-3 mt-12 max-h-[calc(100vh-200px)] overflow-y-auto">
-              {coreModules
-                .filter((module) => module.position === "right")
-                .map((module) => {
-                  const IconComponent = module.icon
-                  return (
-                    <Link key={module.id} href={module.href}>
-                      <div className="sidebar-item group/item bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-12 h-12 bg-gradient-to-r ${module.color} rounded-xl flex items-center justify-center group-hover/item:scale-110 transition-transform duration-300 flex-shrink-0`}
-                          >
-                            <IconComponent className="w-6 h-6 text-white" />
-                          </div>
-                          <div
-                            className={`flex-1 transition-all duration-300 ${
-                              rightSidebarCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                            }`}
-                          >
-                            <h3 className="text-white font-semibold text-lg whitespace-nowrap">{module.title}</h3>
-                            <p className="text-white/70 text-sm leading-tight whitespace-nowrap">{module.subtitle}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-            </div>
+            <Button
+              variant="outline"
+              size="lg"
+              className="border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg rounded-full backdrop-blur-sm bg-transparent"
+            >
+              <Book className="w-5 h-5 mr-2" />
+              了解更多
+            </Button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 底部标语 */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 text-center no-chat-trigger">
-        <p className="text-white/80 text-lg font-light tracking-wider">
-          <span className="font-bold">
-            All Phenomena Converge to the Cloud Pivot | DeepStack Intelligence Ushers in a New Era.
-          </span>
-        </p>
-      </div>
-
-      {/* 对话框 */}
-      <SmartChatDialog open={showChatDialog} onOpenChange={setShowChatDialog} />
-
-      {/* 登录对话框 */}
-      <LoginDialog open={showLoginDialog} onOpenChange={setShowLoginDialog} />
-    </div>
+      {/* Smart Chat Dialog */}
+      <SmartChatDialog open={isChatOpen} onOpenChange={setIsChatOpen} />
+    </ImprovedPageLayout>
   )
 }
